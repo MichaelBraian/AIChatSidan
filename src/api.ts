@@ -10,51 +10,47 @@ const api = axios.create({
 });
 
 const ASSISTANT_ID = 'asst_Xxj6YDxMDmNHkSq9iMgflz8F';
+let threadId: string | null = null;
 
 export const sendMessageToAssistant = async (messages: { role: string; content: string }[]) => {
   try {
-    // Create a new thread
-    const threadResponse = await api.post('/threads', {});
-    const threadId = threadResponse.data.id;
+    if (!threadId) {
+      const threadResponse = await api.post('/threads', {});
+      threadId = threadResponse.data.id;
+    }
 
-    // Add a message to the thread
+    const latestMessage = messages[messages.length - 1];
     await api.post(`/threads/${threadId}/messages`, {
-      role: 'user',
-      content: messages[messages.length - 1].content
+      role: latestMessage.role,
+      content: latestMessage.content
     });
 
-    // Run the assistant
     const runResponse = await api.post(`/threads/${threadId}/runs`, {
       assistant_id: ASSISTANT_ID
     });
 
-    // Wait for the run to complete
     let runStatus = runResponse.data.status;
-    let attempts = 0;
-    const maxAttempts = 30; // Adjust this value as needed
-
-    while (runStatus !== 'completed' && attempts < maxAttempts) {
+    while (runStatus !== 'completed' && runStatus !== 'failed') {
       await new Promise(resolve => setTimeout(resolve, 1000));
       const statusResponse = await api.get(`/threads/${threadId}/runs/${runResponse.data.id}`);
       runStatus = statusResponse.data.status;
-      attempts++;
+
+      if (runStatus === 'requires_action') {
+        // Handle function calls if needed
+        console.log('Function call required');
+      }
     }
 
-    if (runStatus !== 'completed') {
-      throw new Error('Assistant run timed out');
+    if (runStatus === 'failed') {
+      throw new Error('Assistant run failed');
     }
 
-    // Retrieve the messages
     const messagesResponse = await api.get(`/threads/${threadId}/messages`);
     const assistantMessage = messagesResponse.data.data[0].content[0].text.value;
-
-    if (!assistantMessage) {
-      throw new Error('No response from assistant');
-    }
 
     return assistantMessage;
   } catch (error) {
     console.error('Error in sendMessageToAssistant:', error);
-    throw error; // Re-throw the error to be handled by the component
+    throw error;
   }
 };
