@@ -19,7 +19,7 @@ const createAssistant = async () => {
     const response = await api.post('/assistants', {
       name: "Odontologisk Journalrättning Assistant",
       instructions: "Du är en expert på journalförning inom tandvården. Du kan hjälpa till med att rätta journaler.",
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o",
       tools: [{ type: "code_interpreter" }]
     });
     return response.data.id;
