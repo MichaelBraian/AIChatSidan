@@ -30,23 +30,31 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
 
     // Wait for the run to complete
     let runStatus = runResponse.data.status;
-    while (runStatus !== 'completed') {
+    let attempts = 0;
+    const maxAttempts = 30; // Adjust this value as needed
+
+    while (runStatus !== 'completed' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       const statusResponse = await api.get(`/threads/${threadId}/runs/${runResponse.data.id}`);
       runStatus = statusResponse.data.status;
+      attempts++;
+    }
+
+    if (runStatus !== 'completed') {
+      throw new Error('Assistant run timed out');
     }
 
     // Retrieve the messages
     const messagesResponse = await api.get(`/threads/${threadId}/messages`);
     const assistantMessage = messagesResponse.data.data[0].content[0].text.value;
 
+    if (!assistantMessage) {
+      throw new Error('No response from assistant');
+    }
+
     return assistantMessage;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error('Error sending message:', error.response?.data || error.message);
-    } else {
-      console.error('An unexpected error occurred:', error);
-    }
-    return null;
+    console.error('Error in sendMessageToAssistant:', error);
+    throw error; // Re-throw the error to be handled by the component
   }
 };

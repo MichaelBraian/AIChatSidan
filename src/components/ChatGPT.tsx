@@ -28,16 +28,14 @@ const ChatGPT = () => {
 
       try {
         const responseContent = await sendMessageToAssistant(newMessages);
-        if (responseContent) {
-          const assistantMessage = { role: 'assistant', content: responseContent, id: `assistant-${Date.now()}` };
-          const updatedMessages = [...newMessages, assistantMessage];
-          setMessages(updatedMessages);
-        } else {
-          throw new Error('No response from assistant');
-        }
+        const assistantMessage = { role: 'assistant', content: responseContent, id: `assistant-${Date.now()}` };
+        setMessages([...newMessages, assistantMessage]);
       } catch (error) {
         console.error('Error sending message:', error);
-        const errorMessage = 'Sorry, an error occurred while processing your message. Please try again.';
+        let errorMessage = 'Sorry, an error occurred while processing your message. Please try again.';
+        if (error instanceof Error) {
+          errorMessage += ` (${error.message})`;
+        }
         const errorAssistantMessage = { role: 'assistant', content: errorMessage, id: `error-${Date.now()}` };
         setMessages([...newMessages, errorAssistantMessage]);
       } finally {
