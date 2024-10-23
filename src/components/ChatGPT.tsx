@@ -5,7 +5,7 @@ import { sendMessageToAssistant } from '../api';
 
 const ChatGPT = () => {
   const [messages, setMessages] = useState([
-    { role: 'system', content: 'You are a helpful assistant specialized in dental journal corrections.', id: 'system-0' }
+    { role: 'system', content: 'Du är en expert på journalförning inom tandvården. Du kan hjälpa till med att rätta journaler.', id: 'system-0' }
   ]);
   const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(false);
