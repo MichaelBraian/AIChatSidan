@@ -1,11 +1,12 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://api.openai.com/v1',  // Changed from '/api/v1'
+  baseURL: 'https://api.openai.com/v1',
   headers: {
     'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
     'Content-Type': 'application/json',
-    'OpenAI-Beta': 'assistants=v2'
+    'OpenAI-Beta': 'assistants=v2',
+    'OpenAI-Version': '2024-03-01-preview'
   }
 });
 
@@ -18,13 +19,8 @@ const createAssistant = async () => {
     const response = await api.post('/assistants', {
       name: "Odontologisk Journalrättning Assistant",
       instructions: "Du är en expert på journalförning inom tandvården. Du kan hjälpa till med att rätta journaler.",
-      model: "gpt-4o-mini",
-      tools: [{ type: "code_interpreter" }],
-      tool_resources: {
-        code_interpreter: {
-          file_ids: []  // Add file IDs if needed
-        }
-      }
+      model: "gpt-4-turbo-preview",
+      tools: [{ type: "code_interpreter" }]
     });
     return response.data.id;
   } catch (error) {
@@ -44,30 +40,34 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     // Add the message to the thread
     const latestMessage = messages[messages.length - 1];
     await api.post(`/threads/${threadId}/messages`, {
-      role: latestMessage.role,
+      role: 'user',
       content: latestMessage.content
     });
 
     // Create a run
     const runResponse = await api.post(`/threads/${threadId}/runs`, {
-      assistant_id: ASSISTANT_ID
+      assistant_id: ASSISTANT_ID,
+      instructions: "Du är en expert på journalförning inom tandvården. Du kan hjälpa till med att rätta journaler."
     });
 
+    // Poll for completion
     let runStatus = runResponse.data.status;
     let attempts = 0;
-    const maxAttempts = 30;
+    const maxAttempts = 50;
 
     while (runStatus !== 'completed' && runStatus !== 'failed' && attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 2000));
       const statusResponse = await api.get(`/threads/${threadId}/runs/${runResponse.data.id}`);
       runStatus = statusResponse.data.status;
       attempts++;
     }
 
     if (runStatus === 'failed' || attempts >= maxAttempts) {
+      threadId = null;
       throw new Error(`Assistant run ${runStatus === 'failed' ? 'failed' : 'timed out'}`);
     }
 
+    // Get the latest message
     const messagesResponse = await api.get(`/threads/${threadId}/messages`);
     const assistantMessage = messagesResponse.data.data[0].content[0].text.value;
 
@@ -77,12 +77,11 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     if (axios.isAxiosError(error)) {
       const errorMessage = error.response?.data?.error?.message || error.message;
       const errorCode = error.response?.status;
-      console.error(`API Error (${errorCode}):`, errorMessage);
       
       if (errorCode === 404) {
-        console.error('This might be due to an invalid endpoint or missing resource');
-        // You might want to reset threadId if it's invalid
         threadId = null;
+        // Retry the operation once
+        return sendMessageToAssistant(messages);
       }
       
       throw new Error(`API Error (${errorCode}): ${errorMessage}`);
