@@ -44,7 +44,7 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     await api.post(`/threads/${threadId}/messages`, {
       role: latestMessage.role,
       content: latestMessage.content,
-      attachments: []  // Add attachments if needed
+      attachments: []  // We're not using attachments now, but this is where you'd add them if needed
     });
 
     const runResponse = await api.post(`/threads/${threadId}/runs`, {
