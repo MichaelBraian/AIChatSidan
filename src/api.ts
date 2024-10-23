@@ -1,16 +1,37 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://api.openai.com/v1',
+  baseURL: '/api/v1',
   headers: {
     'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
     'Content-Type': 'application/json',
-    'OpenAI-Beta': 'assistants=v1'
+    'OpenAI-Beta': 'assistants=v2'
   }
 });
 
 const ASSISTANT_ID = 'asst_Xxj6YDxMDmNHkSq9iMgflz8F';
 let threadId: string | null = null;
+
+// Function to create an assistant (if needed)
+const createAssistant = async () => {
+  try {
+    const response = await api.post('/assistants', {
+      name: "Odontologisk Journalrättning Assistant",
+      instructions: "Du är en expert på journalförning inom tandvården. Du kan hjälpa till med att rätta journaler.",
+      model: "gpt-4-turbo-preview",
+      tools: [{ type: "code_interpreter" }],
+      tool_resources: {
+        code_interpreter: {
+          file_ids: []  // Add file IDs if needed
+        }
+      }
+    });
+    return response.data.id;
+  } catch (error) {
+    console.error('Error creating assistant:', error);
+    throw error;
+  }
+};
 
 export const sendMessageToAssistant = async (messages: { role: string; content: string }[]) => {
   try {
@@ -22,7 +43,8 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     const latestMessage = messages[messages.length - 1];
     await api.post(`/threads/${threadId}/messages`, {
       role: latestMessage.role,
-      content: latestMessage.content
+      content: latestMessage.content,
+      attachments: []  // Add attachments if needed
     });
 
     const runResponse = await api.post(`/threads/${threadId}/runs`, {
@@ -38,11 +60,6 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
       const statusResponse = await api.get(`/threads/${threadId}/runs/${runResponse.data.id}`);
       runStatus = statusResponse.data.status;
       attempts++;
-
-      if (runStatus === 'requires_action') {
-        console.log('Function call required');
-        // Implement function call handling if needed
-      }
     }
 
     if (runStatus === 'failed' || attempts >= maxAttempts) {
@@ -57,7 +74,9 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     console.error('Error in sendMessageToAssistant:', error);
     if (axios.isAxiosError(error)) {
       const errorMessage = error.response?.data?.error?.message || error.message;
-      throw new Error(`API Error: ${errorMessage}`);
+      const errorCode = error.response?.status;
+      console.error(`API Error (${errorCode}):`, errorMessage);
+      throw new Error(`API Error (${errorCode}): ${errorMessage}`);
     }
     throw error;
   }
