@@ -6,7 +6,6 @@ const api = axios.create({
     'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
     'Content-Type': 'application/json',
     'OpenAI-Beta': 'assistants=v2',
-    'OpenAI-Version': '2024-03-01-preview'
   }
 });
 
