@@ -30,19 +30,23 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     });
 
     let runStatus = runResponse.data.status;
-    while (runStatus !== 'completed' && runStatus !== 'failed') {
+    let attempts = 0;
+    const maxAttempts = 30;
+
+    while (runStatus !== 'completed' && runStatus !== 'failed' && attempts < maxAttempts) {
       await new Promise(resolve => setTimeout(resolve, 1000));
       const statusResponse = await api.get(`/threads/${threadId}/runs/${runResponse.data.id}`);
       runStatus = statusResponse.data.status;
+      attempts++;
 
       if (runStatus === 'requires_action') {
-        // Handle function calls if needed
         console.log('Function call required');
+        // Implement function call handling if needed
       }
     }
 
-    if (runStatus === 'failed') {
-      throw new Error('Assistant run failed');
+    if (runStatus === 'failed' || attempts >= maxAttempts) {
+      throw new Error(`Assistant run ${runStatus === 'failed' ? 'failed' : 'timed out'}`);
     }
 
     const messagesResponse = await api.get(`/threads/${threadId}/messages`);
@@ -51,6 +55,10 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
     return assistantMessage;
   } catch (error) {
     console.error('Error in sendMessageToAssistant:', error);
+    if (axios.isAxiosError(error)) {
+      const errorMessage = error.response?.data?.error?.message || error.message;
+      throw new Error(`API Error: ${errorMessage}`);
+    }
     throw error;
   }
 };
