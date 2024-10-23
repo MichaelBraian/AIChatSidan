@@ -26,3 +26,5 @@
    # Environment variables
    .env
 node_modules
+.env
+dist
