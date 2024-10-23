@@ -3,7 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  server: {
+  server: process.env.NODE_ENV === 'development' ? {
     proxy: {
       '/api': {
         target: 'https://michaelbraian.netlify.app/',
@@ -11,7 +11,7 @@ export default defineConfig({
         rewrite: (path) => path.replace(/^\/api/, '')
       }
     }
-  },
+  } : {},
   define: {
     'process.env': process.env
   }
