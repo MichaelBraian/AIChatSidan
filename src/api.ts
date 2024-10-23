@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: 'https://api.openai.com/v1',  // Changed from '/api/v1'
   headers: {
     'Authorization': `Bearer ${import.meta.env.VITE_OPENAI_API_KEY}`,
     'Content-Type': 'application/json',
@@ -18,7 +18,7 @@ const createAssistant = async () => {
     const response = await api.post('/assistants', {
       name: "Odontologisk Journalrättning Assistant",
       instructions: "Du är en expert på journalförning inom tandvården. Du kan hjälpa till med att rätta journaler.",
-      model: "gpt-4-turbo-preview",
+      model: "gpt-4o-mini",
       tools: [{ type: "code_interpreter" }],
       tool_resources: {
         code_interpreter: {
@@ -35,18 +35,20 @@ const createAssistant = async () => {
 
 export const sendMessageToAssistant = async (messages: { role: string; content: string }[]) => {
   try {
+    // Create a thread if it doesn't exist
     if (!threadId) {
       const threadResponse = await api.post('/threads', {});
       threadId = threadResponse.data.id;
     }
 
+    // Add the message to the thread
     const latestMessage = messages[messages.length - 1];
     await api.post(`/threads/${threadId}/messages`, {
       role: latestMessage.role,
-      content: latestMessage.content,
-      attachments: []  // We're not using attachments now, but this is where you'd add them if needed
+      content: latestMessage.content
     });
 
+    // Create a run
     const runResponse = await api.post(`/threads/${threadId}/runs`, {
       assistant_id: ASSISTANT_ID
     });
@@ -76,6 +78,13 @@ export const sendMessageToAssistant = async (messages: { role: string; content: 
       const errorMessage = error.response?.data?.error?.message || error.message;
       const errorCode = error.response?.status;
       console.error(`API Error (${errorCode}):`, errorMessage);
+      
+      if (errorCode === 404) {
+        console.error('This might be due to an invalid endpoint or missing resource');
+        // You might want to reset threadId if it's invalid
+        threadId = null;
+      }
+      
       throw new Error(`API Error (${errorCode}): ${errorMessage}`);
     }
     throw error;
